@@ -6,3 +6,4 @@ tqdm
 requests
 python-dotenv
 joblib
+twilio>=8.0.0
