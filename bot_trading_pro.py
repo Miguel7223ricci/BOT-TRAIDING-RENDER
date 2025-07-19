@@ -16,24 +16,17 @@ from whatsapp_sender import enviar_whatsapp
 
 load_dotenv()
 
+from config_activos import ACTIVOS_DISPONIBLES
+
 CONFIG = {
-    "activos": {
-        "EURUSD": "EURUSD=X", "EURNZD": "EURNZD=X", "GBPNZD": "GBPNZD=X",
-        "GBPJPY": "GBPJPY=X", "USDNOK": "USDNOK=X", "USDCHF": "USDCHF=X",
-        "USDSEK": "USDSEK=X", "EURSEK": "EURSEK=X", "GBPAUD": "GBPAUD=X",
-        "AUDNZD": "AUDNZD=X", "NZDUSD": "NZDUSD=X", "EURCAD": "EURCAD=X",
-        "AUDUSD": "AUDUSD=X", "EURAUD": "EURAUD=X", "CADJPY": "CADJPY=X",
-        "NATGAS": "NG=F", "GOLD": "GC=F", "WTI": "CL=F", "PALLADIUM": "PA=F",
-        "SOLANA": "SOL-USD", "BTC": "BTC-USD", "ETH": "ETH-USD",
-        "US2000": "^RUT", "US500": "^GSPC", "US30": "^DJI", "EU50": "^STOXX50E",
-        "AAPL": "AAPL", "MSFT": "MSFT", "TSLA": "TSLA", "AMZN": "AMZN", "META": "META", "NVDA": "NVDA"
-    },
+    "activos": ACTIVOS_DISPONIBLES,
     "intervalo": "4h",
     "periodo": "60d",
     "modelo_path": "modelo_trained_rf_pro.pkl",
     "umbral_confianza": 0.55,
     "pausa_horas": 4
 }
+
 
 # ========================== LOGGING ===============================
 
