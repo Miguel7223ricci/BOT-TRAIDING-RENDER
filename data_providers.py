@@ -1,5 +1,3 @@
-# data_providers.py
-
 import os
 import requests
 import pandas as pd
@@ -49,17 +47,24 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
             return None
 
         df = pd.DataFrame(valores)
-        df.columns = [col.upper() for col in df.columns]  # Forzar columnas en mayúsculas
+
+        # Normalizar nombres de columnas con capitalización (no todo mayúsculas)
+        df.columns = [col.capitalize() for col in df.columns]
         logger.debug(f"📊 Columnas disponibles para {ticker}: {df.columns.tolist()}")
 
-        if "CLOSE" not in df.columns:
-            logger.error(f"❌ Columna 'CLOSE' no encontrada en datos de {ticker}")
+        if "Close" not in df.columns or "Datetime" not in df.columns:
+            logger.error(f"❌ Faltan columnas esenciales ('Close' o 'Datetime') en datos de {ticker}")
             return None
 
-        df["DATETIME"] = pd.to_datetime(df["DATETIME"])
-        df.set_index("DATETIME", inplace=True)
+        df["Datetime"] = pd.to_datetime(df["Datetime"], errors="coerce")
+        df.set_index("Datetime", inplace=True)
 
-        df = df.astype(float)
+        # Convertir columnas numéricas
+        for col in ["Open", "High", "Low", "Close", "Volume"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        df.dropna(inplace=True)
         df = df.sort_index()
 
         return df
