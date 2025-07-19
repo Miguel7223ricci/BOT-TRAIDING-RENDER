@@ -25,9 +25,9 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     londres = df.between_time('06:00', '12:00')
     nyse = df.between_time('13:00', '20:00')
 
-    rango_asiatico = (asiatico['High'].max(), asiatico['Low'].min())
-    rango_londres = (londres['High'].max(), londres['Low'].min())
-    rango_nyse = (nyse['High'].max(), nyse['Low'].min())
+    rango_asiatico = (asiatico['high'].max(), asiatico['low'].min())
+    rango_londres = (londres['high'].max(), londres['low'].min())
+    rango_nyse = (nyse['high'].max(), nyse['low'].min())
 
     rompimientos = []
     if precio > rango_asiatico[0] or precio < rango_asiatico[1]:
