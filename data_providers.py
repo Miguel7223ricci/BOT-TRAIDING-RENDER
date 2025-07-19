@@ -1,3 +1,5 @@
+# data_providers.py
+
 import os
 import requests
 import pandas as pd
@@ -14,7 +16,7 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
         print("❌ TWELVE_DATA_API_KEY no configurada en .env")
         return None
 
-    # Convertir '60d' a fecha de inicio
+    # Calcular fecha de inicio
     hoy = datetime.utcnow()
     dias = int(periodo.replace("d", ""))
     fecha_inicio = hoy - timedelta(days=dias)
@@ -44,12 +46,13 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
             return None
 
         df = pd.DataFrame(valores)
-        df.columns = [col.upper() for col in df.columns]  # Convertir columnas a mayúsculas
+        df.columns = [col.upper() for col in df.columns]  # Convertir todas las columnas a mayúsculas
         df["DATETIME"] = pd.to_datetime(df["DATETIME"])
         df.set_index("DATETIME", inplace=True)
 
         df = df.astype(float)
         df = df.sort_index()
+
         return df
 
     except Exception as e:
