@@ -1,7 +1,6 @@
 # data_providers.py
 
 import os
-import time
 import requests
 import pandas as pd
 import logging
@@ -10,15 +9,16 @@ from datetime import datetime, timedelta
 
 load_dotenv()
 API_KEY = os.getenv("TWELVE_DATA_API_KEY")
+
 logger = logging.getLogger(__name__)
 
-def obtener_datos(ticker, intervalo="4h", periodo="60d", max_intentos=3):
+def obtener_datos(ticker, intervalo="4h", periodo="60d"):
     """Obtiene datos históricos de Twelve Data para el símbolo dado."""
-
     if not API_KEY:
         logger.error("❌ TWELVE_DATA_API_KEY no configurada en .env")
         return None
 
+    # Calcular fecha de inicio
     hoy = datetime.utcnow()
     dias = int(periodo.replace("d", ""))
     fecha_inicio = hoy - timedelta(days=dias)
@@ -34,82 +34,55 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d", max_intentos=3):
         "outputsize": 5000
     }
 
-    for intento in range(1, max_intentos + 1):
-        logger.info(f"🔍 Evaluando {ticker} [Intento {intento}]")
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
 
-        try:
-            response = requests.get(url, params=params)
-            data = response.json()
+        if "status" in data and data["status"] == "error":
+            logger.error(f"❌ Error al obtener datos de {ticker}: {data.get('message')}")
+            return None
 
-            if "status" in data and data["status"] == "error":
-                mensaje = data.get("message", "")
-                logger.error(f"❌ Error API para {ticker}: {mensaje}")
+        valores = data.get("values", [])
+        if not valores:
+            logger.warning(f"⚠️ Sin datos para {ticker}")
+            return None
 
-                if "API credits" in mensaje:
-                    logger.info("⏳ Límite de créditos alcanzado, esperando 60 segundos...")
-                    time.sleep(60)
-                    return None
+        df = pd.DataFrame(valores)
 
+        # Normalizar nombres de columnas
+        df.columns = [col.lower() for col in df.columns]
+
+        # Renombrar a formato con mayúsculas iniciales
+        columnas_objetivo = {
+            "open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume", "datetime": "Datetime"
+        }
+        df.rename(columns={k: v for k, v in columnas_objetivo.items() if k in df.columns}, inplace=True)
+
+        logger.info(f"📊 Columnas recibidas para {ticker}: {df.columns.tolist()}")
+        if "Close" not in df.columns:
+            logger.warning(f"⚠️ 'Close' no disponible en datos para {ticker}. Generando con promedio OHLC")
+            if all(col in df.columns for col in ["Open", "High", "Low"]):
+                df["Close"] = df[["Open", "High", "Low"]].astype(float).mean(axis=1)
+            else:
+                logger.error(f"❌ No se puede crear 'Close' por falta de columnas OHLC en {ticker}")
                 return None
 
-            valores = data.get("values", [])
-            if not valores:
-                logger.warning(f"⚠️ Sin datos disponibles para {ticker}")
-                return None
+        # Parsear fecha y ordenar
+        df["Datetime"] = pd.to_datetime(df["Datetime"])
+        df.set_index("Datetime", inplace=True)
+        df = df.sort_index()
 
-            df = pd.DataFrame(valores)
-            logger.info(f"📊 Columnas recibidas para {ticker}: {df.columns.tolist()}")
+        # Convertir a float
+        for col in ["Open", "High", "Low", "Close", "Volume"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
-            # Renombrar columnas a formato esperado
-            df.columns = [col.lower() for col in df.columns]
-            column_mapping = {
-                'close': 'Close',
-                'closing': 'Close',
-                'price': 'Close',
-                'value': 'Close',
-                'datetime': 'datetime',
-                'date': 'datetime',
-                'time': 'datetime'
-            }
-            df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns}, inplace=True)
+        df.dropna(inplace=True)
+        logger.info(f"✅ Datos obtenidos para {ticker} ({len(df)} registros)")
 
-            if "Close" not in df.columns:
-                if all(col in df.columns for col in ['open', 'high', 'low']):
-                    logger.warning(f"⚠️ Generando 'Close' como promedio OHLC para {ticker}")
-                    df['Close'] = (pd.to_numeric(df['open'], errors='coerce') +
-                                   pd.to_numeric(df['high'], errors='coerce') +
-                                   pd.to_numeric(df['low'], errors='coerce')) / 3
-                else:
-                    logger.error(f"❌ No se puede obtener o generar 'Close' para {ticker}")
-                    return None
+        return df
 
-            if "datetime" not in df.columns:
-                logger.error(f"❌ Columna 'datetime' faltante para {ticker}")
-                return None
+    except Exception as e:
+        logger.exception(f"❌ Excepción al obtener datos de {ticker}: {e}")
+        return None
 
-            df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
-            df.set_index("datetime", inplace=True)
-            df.sort_index(inplace=True)
-
-            for col in ['open', 'high', 'low', 'Close', 'volume']:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-
-            df.dropna(subset=['Close'], inplace=True)
-
-            if df.empty:
-                logger.warning(f"⚠️ DataFrame vacío después de limpieza para {ticker}")
-                return None
-
-            logger.info(f"✅ Datos obtenidos para {ticker} ({len(df)} registros)")
-            return df
-
-        except Exception as e:
-            logger.error(f"❌ Excepción al obtener datos de {ticker}: {e}")
-
-        if intento < max_intentos:
-            logger.warning(f"🔄 Reintentando {ticker} en 5 segundos...")
-            time.sleep(5)
-
-    logger.error(f"❌ Fallo definitivo para {ticker}: 'Close'")
-    return None
