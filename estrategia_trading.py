@@ -58,7 +58,7 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
             confianza = 0.0
 
     logger.info(f"📊 Evaluación ML para {nombre}: Precio={precio:.5f}, ATR={atr:.5f}, RSI={rsi:.2f}, "
-                f"EMA_Rápida={ema_rapida:.5f}, EMA_Lenta={ema_lenta:.5f}, "
+                f"EMA rápida={ema_rapida:.5f}, EMA lenta={ema_lenta:.5f}, "
                 f"Rangos rotos={rompimientos}, Confianza={confianza:.2%}")
 
     if confianza < umbral_confianza:
@@ -106,9 +106,6 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     else:
         logger.info(f"ℹ️ No se generaron señales para {nombre} a pesar de romper rango y superar confianza")
 
-    # Guardar CSV de depuración
-    # pd.DataFrame([entrada_ml.assign(confianza=confianza)]).to_csv(f"debug_resultado_{nombre}.csv", index=False)
-
     return señales
 
 def formatear_mensaje(activo, direccion, precio, stop, target,
@@ -120,8 +117,8 @@ def formatear_mensaje(activo, direccion, precio, stop, target,
 • Stop Loss: {stop:.5f}
 • Take Profit: {target:.5f}
 • ATR: {atr:.5f}
-• EMA Rápida: {ema_r:.5f}
-• EMA Lenta: {ema_l:.5f}
+• EMA rápida: {ema_r:.5f}
+• EMA lenta: {ema_l:.5f}
 • RSI: {rsi:.2f}
 • Confianza ML: {confianza:.2%}
 • Rango roto: {', '.join(rangos)}
