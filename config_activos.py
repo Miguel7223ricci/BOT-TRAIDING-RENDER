@@ -10,12 +10,12 @@ CONFIG = {
         "AUDUSD": "AUD/USD", "EURAUD": "EUR/AUD", "CADJPY": "CAD/JPY",
 
         # Criptomonedas
-        "BTC": "BTC/USD", "ETH": "ETH/USD", "SOLANA": "SOL/USD",
-
-   
+        "BTC": "BTC/USD", "ETH": "ETH/USD", "SOLANA": "SOL/USD"
+    },
     "intervalo": "4h",
     "periodo": "60d",
     "modelo_path": "modelo_trained_rf_pro.pkl",
     "umbral_confianza": 0.55,
     "pausa_horas": 4
 }
+
