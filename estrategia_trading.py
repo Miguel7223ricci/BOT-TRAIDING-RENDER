@@ -2,87 +2,89 @@
 
 from datetime import datetime
 import pandas as pd
-from indicadores_tecnicos import calcular_indicadores
 
-def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
-    if df is None or len(df) < 50:
-        return []
+def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
+    """Evalúa señales de trading (compra y venta) para un activo."""
+    señales = []
 
-    df = calcular_indicadores(df.copy())
-    df["hora"] = df.index.hour
-
+    df = df.copy()
     ultima = df.iloc[-1]
-    atr = ultima["atr"]
-    ema_rapida = ultima["ema_rapida"]
-    ema_lenta = ultima["ema_lenta"]
-    rsi = ultima["rsi"]
-    precio = ultima["close"]
 
-    # Análisis por sesiones
-    asiatico = df.between_time("00:00", "06:00")
-    londres = df.between_time("06:00", "12:00")
-    nyse = df.between_time("13:00", "20:00")
+    # Extraer datos técnicos
+    precio = ultima['close']
+    atr = ultima['ATR']
+    ema_rapida = ultima['EMA_Rapida']
+    ema_lenta = ultima['EMA_Lenta']
+    rsi = ultima['RSI']
+    soporte = ultima['Soporte']
+    resistencia = ultima['Resistencia']
+
+    # Rangos de sesión (hora UTC)
+    df['hora'] = df.index.hour
+    asiatico = df.between_time('00:00', '06:00')
+    londres = df.between_time('06:00', '12:00')
+    nyse = df.between_time('13:00', '20:00')
+
+    rango_asiatico = (asiatico['high'].max(), asiatico['low'].min())
+    rango_londres = (londres['high'].max(), londres['low'].min())
+    rango_nyse = (nyse['high'].max(), nyse['low'].min())
 
     rompimientos = []
-    if precio > asiatico["high"].max() or precio < asiatico["low"].min():
+    if precio > rango_asiatico[0] or precio < rango_asiatico[1]:
         rompimientos.append("Asiático")
-    if precio > londres["high"].max() or precio < londres["low"].min():
+    if precio > rango_londres[0] or precio < rango_londres[1]:
         rompimientos.append("Londres")
-    if precio > nyse["high"].max() or precio < nyse["low"].min():
+    if precio > rango_nyse[0] or precio < rango_nyse[1]:
         rompimientos.append("EE.UU.")
 
     if not rompimientos:
         return []
 
-    señales = []
-
-    # Modelo ML
+    # Predicción del modelo ML
     if modelo:
         entrada_ml = pd.DataFrame([{
-            "atr": atr,
-            "ema_rapida": ema_rapida,
-            "ema_lenta": ema_lenta,
-            "rsi": rsi
+            "ATR": atr,
+            "EMA_Rapida": ema_rapida,
+            "EMA_Lenta": ema_lenta,
+            "RSI": rsi,
+            "Direccion_Num": 1
         }])
         proba = modelo.predict_proba(entrada_ml)[0]
-        clase_idx = proba.argmax()
-        clase = modelo.classes_[clase_idx]
+        clase_idx = list(modelo.classes_).index("GANANCIA")
         confianza = proba[clase_idx]
     else:
-        clase = "HOLD"
         confianza = 0.0
 
-    if confianza < umbral_confianza or clase == "HOLD":
+    if confianza < umbral_confianza:
         return []
 
-    if clase == "BUY":
-        sl = precio - atr * 1.5
-        tp = precio + atr * 2
-    elif clase == "SELL":
-        sl = precio + atr * 1.5
-        tp = precio - atr * 2
+    # Señales de COMPRA (BUY)
+    if ema_rapida > ema_lenta and rsi > 40 and rsi < 70:
+        mensaje = formatear_mensaje(
+            nombre, "BUY", precio, soporte, resistencia,
+            atr, ema_rapida, ema_lenta, rsi, confianza, rompimientos
+        )
+        señales.append(mensaje)
 
-    mensaje = formatear_mensaje(activo, clase, precio, sl, tp, atr, ema_rapida, ema_lenta, rsi, confianza, rompimientos)
-    señales.append({
-        "activo": activo,
-        "tipo": clase,
-        "precio": precio,
-        "sl": sl,
-        "tp": tp,
-        "mensaje": mensaje,
-        "fecha": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    })
+    # Señales de VENTA (SELL)
+    if ema_rapida < ema_lenta and rsi < 60 and rsi > 30:
+        mensaje = formatear_mensaje(
+            nombre, "SELL", precio, resistencia, soporte,
+            atr, ema_rapida, ema_lenta, rsi, confianza, rompimientos
+        )
+        señales.append(mensaje)
 
     return señales
 
-
-def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, confianza, rangos):
+def formatear_mensaje(activo, direccion, precio, stop, target,
+                      atr, ema_r, ema_l, rsi, confianza, rangos):
+    """Genera el mensaje WhatsApp con todos los datos clave."""
     return f"""
-🔔 *SEÑAL DE TRADING ({tipo})* - {datetime.now().strftime('%Y-%m-%d %H:%M')}
+🔔 *SEÑAL DE TRADING ({direccion})* - {datetime.now().strftime('%Y-%m-%d %H:%M')}
 • Activo: {activo}
 • Precio: {precio:.5f}
-• Stop Loss: {sl:.5f}
-• Take Profit: {tp:.5f}
+• Stop Loss: {stop:.5f}
+• Take Profit: {target:.5f}
 • ATR: {atr:.5f}
 • EMA Rápida: {ema_r:.5f}
 • EMA Lenta: {ema_l:.5f}
@@ -90,4 +92,3 @@ def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, conf
 • Confianza ML: {confianza:.2%}
 • Rango roto: {', '.join(rangos)}
 """
-
