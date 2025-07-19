@@ -1,0 +1,17 @@
+services:
+  - type: worker
+    name: bot-trading
+    runtime: python
+    repo: https://github.com/Miguel7223ricci/bot-traiding-render
+    branch: master
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot_trading_pro.py"
+    envVars:
+      - key: TWILIO_SID
+        sync: false
+      - key: TWILIO_TOKEN
+        sync: false
+      - key: TWILIO_PHONE
+        sync: false
+      - key: DEST_PHONE
+        sync: false
