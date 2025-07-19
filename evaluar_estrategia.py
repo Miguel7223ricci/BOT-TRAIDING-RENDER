@@ -42,13 +42,14 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
 
     # -------- PREDICCIÓN CON MODELO ML --------
     if modelo:
-        entrada_ml = pd.DataFrame([{
-            "atr": atr,
-            "ema_rapida": ema_rapida,
-            "ema_lenta": ema_lenta,
-            "rsi": rsi
-        }])
 
+	entrada_ml = pd.DataFrame([{
+    	    "atr": ultima["ATR"],
+    	    "ema_rapida": ultima["EMA_RAPIDA"],
+            "ema_lenta": ultima["EMA_LENTA"],
+            "rsi": ultima["RSI"]
+        }])
+      
         try:
             proba = modelo.predict_proba(entrada_ml)[0]
             clase_idx = proba.argmax()
