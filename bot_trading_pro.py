@@ -80,10 +80,17 @@ def monitorear():
     while True:
         logger.info("\n🚀 Iniciando nuevo ciclo de monitoreo")
 
-        for nombre, ticker in CONFIG["activos"].items():
+        for i, (nombre, ticker) in enumerate(CONFIG["activos"].items(), start=1):
             try:
                 evaluar_activo(nombre, ticker)
-                time.sleep(8)  # Controla uso de créditos API (máx 8 por minuto en plan free)
+
+                # Evitar superar el límite de 8 requests por minuto
+                if i % 8 == 0:
+                    logger.info("⏳ Límite de créditos alcanzado, esperando 60 segundos...")
+                    time.sleep(60)  # Espera 1 minuto tras cada 8 activos
+                else:
+                    time.sleep(8)  # Espera breve entre activos
+
             except Exception as e:
                 logger.error(f"❌ Error evaluando {nombre}: {e}")
 
