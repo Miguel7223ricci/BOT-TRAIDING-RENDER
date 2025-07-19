@@ -40,10 +40,10 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     confianza = 0.0
     if modelo:
         entrada_ml = pd.DataFrame([{
-            "ATR": atr,
-            "EMA_Rapida": ema_rapida,
-            "EMA_Lenta": ema_lenta,
-            "RSI": rsi
+            "atr": atr,
+            "ema_rapida": ema_rapida,
+            "ema_lenta": ema_lenta,
+            "rsi": rsi
         }])
 
         try:
