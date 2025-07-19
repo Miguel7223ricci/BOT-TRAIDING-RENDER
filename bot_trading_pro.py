@@ -57,8 +57,7 @@ def evaluar_activo(nombre, ticker):
 def registrar_senal(activo, fecha, precio_actual, senal, modelo_path):
     try:
         with open(RESULTADOS_PATH, "a") as f:
-            f.write(f"{activo},{fecha},{precio_actual},{senal},{modelo_path},,
-")
+            f.write(f"{activo},{fecha},{precio_actual},{senal},{modelo_path}\n")
     except Exception as e:
         logger.error(f"❌ Error al registrar señal: {e}")
 
