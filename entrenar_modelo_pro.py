@@ -1,68 +1,52 @@
-# entrenar_modelo_pro.py
-
 import pandas as pd
 import numpy as np
-import joblib
-from sklearn.ensemble import RandomForestClassifier
+from ta.trend import EMAIndicator
+from ta.volatility import AverageTrueRange
+from ta.momentum import RSIIndicator
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.ensemble import RandomForestClassifier
+import joblib
 
-# ============================== CONFIGURACIÓN ==============================
-RUTA_SALIDA_MODELO = "modelo_trained_rf_pro.pkl"
-UMBRAL_RETORNO = 0.0025  # 0.25%
-VENTANA_RETARDO = 6  # 6 velas = 24h en intervalo 4h
+# === 1. Cargar dataset ===
+df = pd.read_csv("dataset_entrenamiento_pro.csv")
+df.columns = df.columns.str.lower()  # Asegura nombres en minúsculas
 
-# ============================== FUNCIONES ==============================
+# Asegura que existan las columnas necesarias
+for col in ["open", "high", "low", "close"]:
+    if col not in df.columns:
+        raise ValueError(f"Falta la columna {col} en el archivo CSV.")
 
-def calcular_etiquetas(df):
-    """Crea la columna de etiquetas (BUY, SELL, HOLD) según variación futura del precio"""
-    df = df.copy()
-    df["future_return"] = df["CLOSE"].shift(-VENTANA_RETARDO) / df["CLOSE"] - 1
-    condiciones = [
-        df["future_return"] > UMBRAL_RETORNO,
-        df["future_return"] < -UMBRAL_RETORNO
-    ]
-    elecciones = ["BUY", "SELL"]
-    df["Label"] = np.select(condiciones, elecciones, default="HOLD")
-    return df.dropna()
+# === 2. Calcular indicadores técnicos ===
+df["ema_rapida"] = EMAIndicator(close=df["close"], window=21).ema_indicator()
+df["ema_lenta"] = EMAIndicator(close=df["close"], window=50).ema_indicator()
+df["atr"] = AverageTrueRange(high=df["high"], low=df["low"], close=df["close"], window=14).average_true_range()
+df["rsi"] = RSIIndicator(close=df["close"], window=14).rsi()
 
-def cargar_dataset(csv_path):
-    df = pd.read_csv(csv_path, parse_dates=["Datetime"])
-    df.columns = [col.upper() for col in df.columns]
-    df.set_index("DATETIME", inplace=True)
-    df.dropna(inplace=True)
-    return df
+# === 3. Crear columna objetivo ===
+# Si el precio sube en los próximos 3 pasos → GANANCIA, sino → PERDIDA
+df["future_close"] = df["close"].shift(-3)
+df["direccion"] = np.where(df["future_close"] > df["close"], "GANANCIA", "PERDIDA")
 
-def entrenar_modelo(df):
-    """Entrena el modelo RandomForest con los datos disponibles"""
-    df = calcular_etiquetas(df)
+# Elimina filas con NaN (por indicadores o shift)
+df.dropna(inplace=True)
 
-    # Usar las columnas disponibles en tu CSV como features
-    columnas_features = ["H-L", "O-C", "MA10", "MA50", "STDDEV"]
+# === 4. Selección de variables ===
+features = ["atr", "ema_rapida", "ema_lenta", "rsi"]
+X = df[features]
+y = df["direccion"]
 
-    X = df[columnas_features]
-    y = df["Label"]
+# === 5. División entrenamiento / test ===
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.2, random_state=42)
+# === 6. Entrenar modelo ===
+modelo = RandomForestClassifier(n_estimators=100, random_state=42)
+modelo.fit(X_train, y_train)
+print("✅ Modelo entrenado con éxito")
 
-    modelo = RandomForestClassifier(n_estimators=200, max_depth=6, class_weight="balanced", random_state=42)
-    modelo.fit(X_train, y_train)
+# === 7. Guardar modelo ===
+joblib.dump(modelo, "modelo_trained_rf_pro.pkl")
+print("💾 Modelo guardado como modelo_trained_rf_pro.pkl")
 
-    y_pred = modelo.predict(X_test)
-    print("\n====== CLASIFICACIÓN ======")
-    print(classification_report(y_test, y_pred))
-
-    return modelo
-
-# ============================== FLUJO PRINCIPAL ==============================
-
-def main():
-    csv_path = "datasets/dataset_entrenamiento_pro.csv"  # Asegúrate de que exista
-    df = cargar_dataset(csv_path)
-    modelo = entrenar_modelo(df)
-    joblib.dump(modelo, RUTA_SALIDA_MODELO)
-    print(f"\n✅ Modelo guardado en: {RUTA_SALIDA_MODELO}")
-
-if __name__ == "__main__":
-    main()
-
+# === 8. Guardar dataset procesado (opcional) ===
+df.to_csv("dataset_entrenamiento_actualizado.csv", index=False)
+print("📁 Dataset actualizado guardado como dataset_entrenamiento_actualizado.csv")
