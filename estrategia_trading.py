@@ -10,7 +10,19 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
         return []
 
     df = df.copy()
+    
+    # NOTA: La conversión a minúsculas ya la realiza 'indicadores_tecnicos.py'.
+    # El DataFrame 'df' que llega aquí ya debería tener las columnas en minúscula.
+    # ('atr', 'rsi', 'ema_rapida', 'ema_lenta')
+
     ultima = df.iloc[-1]
+
+    # --- Verificación de Seguridad ---
+    # Comprobamos que todas las columnas necesarias existan antes de continuar.
+    required_cols = ['close', 'atr', 'ema_rapida', 'ema_lenta', 'rsi', 'high', 'low']
+    if not all(col in df.columns for col in required_cols):
+        logger.error(f"❌ Faltan columnas en {nombre}. Disponibles: {df.columns.tolist()}")
+        return []
 
     precio = ultima['close']
     atr = ultima['atr']
@@ -39,6 +51,8 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
 
     confianza = 0.0
     if modelo:
+        # Crea el DataFrame para la predicción con los nombres en minúscula,
+        # asegurando la compatibilidad con el modelo.
         entrada_ml = pd.DataFrame([{
             "atr": atr,
             "ema_rapida": ema_rapida,
@@ -67,6 +81,7 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
 
     señales = []
 
+    # Lógica para generar señales de COMPRA (BUY)
     if ema_rapida > ema_lenta and 40 < rsi < 70:
         sl = precio - atr * 1.5
         tp = precio + atr * 2
@@ -84,6 +99,7 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
             "fecha": datetime.now()
         })
 
+    # Lógica para generar señales de VENTA (SELL)
     if ema_rapida < ema_lenta and 30 < rsi < 60:
         sl = precio + atr * 1.5
         tp = precio - atr * 2
@@ -123,4 +139,3 @@ def formatear_mensaje(activo, direccion, precio, stop, target,
 • Confianza ML: {confianza:.2%}
 • Rango roto: {', '.join(rangos)}
 """
-
