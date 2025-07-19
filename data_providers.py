@@ -3,17 +3,20 @@
 import os
 import requests
 import pandas as pd
+import logging
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
 load_dotenv()
 API_KEY = os.getenv("TWELVE_DATA_API_KEY")
 
+logger = logging.getLogger(__name__)
+
 def obtener_datos(ticker, intervalo="4h", periodo="60d"):
     """Obtiene datos históricos de Twelve Data para el símbolo dado."""
 
     if not API_KEY:
-        print("❌ TWELVE_DATA_API_KEY no configurada en .env")
+        logger.error("❌ TWELVE_DATA_API_KEY no configurada en .env")
         return None
 
     # Calcular fecha de inicio
@@ -37,16 +40,22 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
         data = response.json()
 
         if "status" in data and data["status"] == "error":
-            print(f"❌ Error al obtener datos de {ticker}: {data.get('message')}")
+            logger.error(f"❌ Error al obtener datos de {ticker}: {data.get('message')}")
             return None
 
         valores = data.get("values", [])
         if not valores:
-            print(f"⚠️ Sin datos para {ticker}")
+            logger.warning(f"⚠️ Sin datos para {ticker}")
             return None
 
         df = pd.DataFrame(valores)
-        df.columns = [col.upper() for col in df.columns]  # Convertir todas las columnas a mayúsculas
+        df.columns = [col.upper() for col in df.columns]  # Forzar columnas en mayúsculas
+        logger.debug(f"📊 Columnas disponibles para {ticker}: {df.columns.tolist()}")
+
+        if "CLOSE" not in df.columns:
+            logger.error(f"❌ Columna 'CLOSE' no encontrada en datos de {ticker}")
+            return None
+
         df["DATETIME"] = pd.to_datetime(df["DATETIME"])
         df.set_index("DATETIME", inplace=True)
 
@@ -56,5 +65,5 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
         return df
 
     except Exception as e:
-        print(f"❌ Excepción al obtener datos de {ticker}: {e}")
+        logger.exception(f"❌ Excepción al obtener datos de {ticker}: {e}")
         return None
