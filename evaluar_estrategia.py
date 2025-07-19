@@ -17,12 +17,12 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
 
     ultima = df.iloc[-1]
     atr = ultima["ATR"]
-    ema_rapida = ultima["EMA_RAPIDA"]
-    ema_lenta = ultima["EMA_LENTA"]
+    ema_rapida = ultima["EMA_Rapida"]
+    ema_lenta = ultima["EMA_Lenta"]
     rsi = ultima["RSI"]
     precio = ultima["CLOSE"]
 
-    # Opcional: análisis de sesión
+    # Análisis de sesiones horarias
     asiatico = df.between_time("00:00", "06:00")
     londres = df.between_time("06:00", "12:00")
     nyse = df.between_time("13:00", "20:00")
@@ -49,10 +49,14 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
             "rsi": rsi
         }])
 
-        proba = modelo.predict_proba(entrada_ml)[0]
-        clase_idx = proba.argmax()
-        clase = modelo.classes_[clase_idx]
-        confianza = proba[clase_idx]
+        try:
+            proba = modelo.predict_proba(entrada_ml)[0]
+            clase_idx = proba.argmax()
+            clase = modelo.classes_[clase_idx]
+            confianza = proba[clase_idx]
+        except Exception as e:
+            print(f"[ERROR] ❌ Error en predicción ML para {activo}: {e}")
+            return []
     else:
         clase = "HOLD"
         confianza = 0.0
@@ -61,25 +65,21 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
         return []
 
     # -------- GENERAR MENSAJE --------
-    if clase == "BUY":
-        sl = precio - atr * 1.5
-        tp = precio + atr * 2
-        mensaje = formatear_mensaje(
-            activo, "BUY", precio, sl, tp, atr, ema_rapida, ema_lenta, rsi, confianza, rompimientos
-        )
-        señales.append({
-            "activo": activo, "tipo": "BUY", "precio": precio, "sl": sl, "tp": tp, "mensaje": mensaje
-        })
+    sl = precio - atr * 1.5 if clase == "BUY" else precio + atr * 1.5
+    tp = precio + atr * 2 if clase == "BUY" else precio - atr * 2
 
-    elif clase == "SELL":
-        sl = precio + atr * 1.5
-        tp = precio - atr * 2
-        mensaje = formatear_mensaje(
-            activo, "SELL", precio, sl, tp, atr, ema_rapida, ema_lenta, rsi, confianza, rompimientos
-        )
-        señales.append({
-            "activo": activo, "tipo": "SELL", "precio": precio, "sl": sl, "tp": tp, "mensaje": mensaje
-        })
+    mensaje = formatear_mensaje(
+        activo, clase, precio, sl, tp, atr, ema_rapida, ema_lenta, rsi, confianza, rompimientos
+    )
+
+    señales.append({
+        "activo": activo,
+        "tipo": clase,
+        "precio": precio,
+        "sl": sl,
+        "tp": tp,
+        "mensaje": mensaje
+    })
 
     return señales
 
@@ -98,4 +98,3 @@ def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, conf
 • Confianza ML: {confianza:.2%}
 • Rango roto: {', '.join(rangos)}
 """
----

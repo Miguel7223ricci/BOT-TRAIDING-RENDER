@@ -9,12 +9,12 @@ import joblib
 
 # === 1. Cargar dataset ===
 df = pd.read_csv("dataset_entrenamiento_pro.csv")
-df.columns = df.columns.str.lower()  # Asegura nombres en minúsculas
+df.columns = df.columns.str.lower()  # Convertir nombres de columnas a minúsculas
 
-# Asegura que existan las columnas necesarias
+# Verificación de columnas necesarias
 for col in ["open", "high", "low", "close"]:
     if col not in df.columns:
-        raise ValueError(f"Falta la columna {col} en el archivo CSV.")
+        raise ValueError(f"❌ Falta la columna requerida: {col}")
 
 # === 2. Calcular indicadores técnicos ===
 df["ema_rapida"] = EMAIndicator(close=df["close"], window=21).ema_indicator()
@@ -23,11 +23,10 @@ df["atr"] = AverageTrueRange(high=df["high"], low=df["low"], close=df["close"], 
 df["rsi"] = RSIIndicator(close=df["close"], window=14).rsi()
 
 # === 3. Crear columna objetivo ===
-# Si el precio sube en los próximos 3 pasos → GANANCIA, sino → PERDIDA
 df["future_close"] = df["close"].shift(-3)
 df["direccion"] = np.where(df["future_close"] > df["close"], "GANANCIA", "PERDIDA")
 
-# Elimina filas con NaN (por indicadores o shift)
+# Eliminar valores faltantes por indicadores o shift
 df.dropna(inplace=True)
 
 # === 4. Selección de variables ===
