@@ -18,7 +18,6 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
         logger.error("❌ TWELVE_DATA_API_KEY no configurada en .env")
         return None
 
-    # Calcular fecha de inicio
     hoy = datetime.utcnow()
     dias = int(periodo.replace("d", ""))
     fecha_inicio = hoy - timedelta(days=dias)
@@ -48,32 +47,23 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
             return None
 
         df = pd.DataFrame(valores)
-
-        # Normalizar nombres de columnas
         df.columns = [col.lower() for col in df.columns]
 
-        # Renombrar a formato con mayúsculas iniciales
-        columnas_objetivo = {
-            "open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume", "datetime": "Datetime"
-        }
-        df.rename(columns={k: v for k, v in columnas_objetivo.items() if k in df.columns}, inplace=True)
-
         logger.info(f"📊 Columnas recibidas para {ticker}: {df.columns.tolist()}")
-        if "Close" not in df.columns:
-            logger.warning(f"⚠️ 'Close' no disponible en datos para {ticker}. Generando con promedio OHLC")
-            if all(col in df.columns for col in ["Open", "High", "Low"]):
-                df["Close"] = df[["Open", "High", "Low"]].astype(float).mean(axis=1)
+
+        if "close" not in df.columns:
+            logger.warning(f"⚠️ 'close' no disponible. Estimando como promedio OHLC")
+            if all(col in df.columns for col in ["open", "high", "low"]):
+                df["close"] = df[["open", "high", "low"]].astype(float).mean(axis=1)
             else:
-                logger.error(f"❌ No se puede crear 'Close' por falta de columnas OHLC en {ticker}")
+                logger.error(f"❌ Faltan columnas para generar 'close' en {ticker}")
                 return None
 
-        # Parsear fecha y ordenar
-        df["Datetime"] = pd.to_datetime(df["Datetime"])
-        df.set_index("Datetime", inplace=True)
+        df["datetime"] = pd.to_datetime(df["datetime"])
+        df.set_index("datetime", inplace=True)
         df = df.sort_index()
 
-        # Convertir a float
-        for col in ["Open", "High", "Low", "Close", "Volume"]:
+        for col in ["open", "high", "low", "close", "volume"]:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -85,4 +75,5 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
     except Exception as e:
         logger.exception(f"❌ Excepción al obtener datos de {ticker}: {e}")
         return None
+
 
