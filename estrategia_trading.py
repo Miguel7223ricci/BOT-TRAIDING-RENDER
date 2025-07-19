@@ -123,3 +123,4 @@ def formatear_mensaje(activo, direccion, precio, stop, target,
 • Confianza ML: {confianza:.2%}
 • Rango roto: {', '.join(rangos)}
 """
+
