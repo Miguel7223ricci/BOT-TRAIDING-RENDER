@@ -43,10 +43,10 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
     # -------- PREDICCIÓN CON MODELO ML --------
     if modelo:
         entrada_ml = pd.DataFrame([{
-            "ATR": atr,
-            "EMA_Rapida": ema_rapida,
-            "EMA_Lenta": ema_lenta,
-            "RSI": rsi
+            "atr": atr,
+            "ema_rapida": ema_rapida,
+            "ema_lenta": ema_lenta,
+            "rsi": rsi
         }])
 
         proba = modelo.predict_proba(entrada_ml)[0]
@@ -98,3 +98,4 @@ def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, conf
 • Confianza ML: {confianza:.2%}
 • Rango roto: {', '.join(rangos)}
 """
+---
