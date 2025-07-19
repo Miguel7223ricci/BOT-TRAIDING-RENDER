@@ -11,22 +11,14 @@ from data_providers import obtener_datos
 from indicadores_tecnicos import calcular_indicadores
 from estrategia_trading import evaluar_estrategia
 from whatsapp_sender import enviar_whatsapp
+from config_activos import CONFIG  # Se importa el diccionario completo
 
 # ========================== CONFIGURACIÓN ===============================
 
 load_dotenv()
 
-from config_activos import ACTIVOS_DISPONIBLES
-
-CONFIG = {
-    "activos": ACTIVOS_DISPONIBLES,
-    "intervalo": "4h",
-    "periodo": "60d",
-    "modelo_path": "modelo_trained_rf_pro.pkl",
-    "umbral_confianza": 0.55,
-    "pausa_horas": 4
-}
-
+RESULTADOS_PATH = "resultados_estrategia.csv"
+VENTANA_RETARDO_VIVO = 4  # Intervalos de 4h
 
 # ========================== LOGGING ===============================
 
@@ -55,6 +47,13 @@ def evaluar_activo(nombre, ticker):
     señales = evaluar_estrategia(nombre, df, modelo, CONFIG["umbral_confianza"])
     for señal in señales:
         enviar_whatsapp(señal)
+        registrar_senal(señal["activo"], señal["fecha"], señal["precio"], señal["tipo"], CONFIG["modelo_path"])
+
+# ========================== REGISTRO DE SEÑALES ===============================
+
+def registrar_senal(activo, fecha, precio_actual, senal, modelo_path):
+    with open(RESULTADOS_PATH, "a") as f:
+        f.write(f"{activo},{fecha},{precio_actual},{senal},{modelo_path},,\n")
 
 # ========================== LOOP PRINCIPAL ===============================
 
@@ -71,13 +70,3 @@ def monitorear():
 
 if __name__ == "__main__":
     monitorear()
-
-import os
-from datetime import datetime
-
-RESULTADOS_PATH = "resultados_estrategia.csv"
-VENTANA_RETARDO_VIVO = 4  # intervalos de 4h
-
-def registrar_senal(activo, fecha, precio_actual, senal, modelo_path):
-    with open(RESULTADOS_PATH, "a") as f:
-        f.write(f"{activo},{fecha},{precio_actual},{senal},{modelo_path},,\n")
