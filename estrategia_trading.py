@@ -11,7 +11,7 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     ultima = df.iloc[-1]
 
     # Extraer datos técnicos
-    precio = ultima['Close']
+    precio = ultima['close']
     atr = ultima['ATR']
     ema_rapida = ultima['EMA_Rapida']
     ema_lenta = ultima['EMA_Lenta']
