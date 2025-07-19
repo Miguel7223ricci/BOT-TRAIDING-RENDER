@@ -1,5 +1,3 @@
-# data_providers.py
-
 import os
 import requests
 import pandas as pd
@@ -45,14 +43,14 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
             print(f"⚠️ Sin datos para {ticker}")
             return None
 
-	df = pd.DataFrame(valores)
-	df.columns = [col.upper() for col in df.columns]  # Convertir columnas a mayúsculas
-	df["DATETIME"] = pd.to_datetime(df["DATETIME"])
-	df.set_index("DATETIME", inplace=True)
+        df = pd.DataFrame(valores)
+        df.columns = [col.upper() for col in df.columns]  # Convertir columnas a mayúsculas
+        df["DATETIME"] = pd.to_datetime(df["DATETIME"])
+        df.set_index("DATETIME", inplace=True)
 
-	df = df.astype(float)
-	df = df.sort_index()
-	return df
+        df = df.astype(float)
+        df = df.sort_index()
+        return df
 
     except Exception as e:
         print(f"❌ Excepción al obtener datos de {ticker}: {e}")
