@@ -1,5 +1,3 @@
-# bot_trading_pro.py
-
 import os
 import time
 import joblib
@@ -14,7 +12,6 @@ from config_activos import CONFIG
 import pandas as pd
 
 load_dotenv()
-
 RESULTADOS_PATH = "resultados_estrategia.csv"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -34,30 +31,36 @@ def evaluar_activo(nombre, ticker, intento=1):
     try:
         logger.info(f"🔍 Evaluando {nombre} ({ticker}) [Intento {intento}]")
         df = obtener_datos(ticker, CONFIG["intervalo"], CONFIG["periodo"])
-        
+
         if df is None:
             logger.warning(f"⚠️ No se pudo obtener datos para {nombre}")
             return
-            
+
         if "close" not in df.columns:
             logger.error(f"❌ Columna 'close' faltante en datos para {nombre}")
             return
-            
+
         if len(df) < 80:
             logger.warning(f"⚠️ No hay suficientes datos ({len(df)} filas) para {nombre}")
             return
 
         df = calcular_indicadores(df)
-        
+
         if modelo is None:
             logger.error("❌ Modelo ML no cargado, omitiendo evaluación")
             return
 
         señales = evaluar_estrategia(nombre, df, modelo, CONFIG["umbral_confianza"])
         for señal in señales:
-            enviar_whatsapp(señal)
-            registrar_senal(señal["activo"], señal["fecha"], señal["precio"], señal["tipo"], CONFIG["modelo_path"])
-            
+            enviar_whatsapp(señal["mensaje"])
+            registrar_senal(
+                señal["activo"],
+                datetime.now(),
+                señal["precio"],
+                señal["tipo"],
+                CONFIG["modelo_path"]
+            )
+
     except Exception as e:
         if intento < max_intentos:
             logger.warning(f"🔄 Reintentando {nombre} en 5 segundos...")
@@ -81,16 +84,14 @@ class APIRateLimiter:
         self.period = period
         self.request_count = 0
         self.last_reset = time.time()
-        
+
     def check_limit(self):
         current_time = time.time()
-        
-        # Reiniciar contador si ha pasado el período
+
         if current_time - self.last_reset > self.period:
             self.request_count = 0
             self.last_reset = current_time
-            
-        # Verificar si se ha excedido el límite
+
         if self.request_count >= self.max_requests:
             sleep_time = self.period - (current_time - self.last_reset) + 1
             logger.warning(f"⏳ Límite API alcanzado. Esperando {sleep_time:.1f}s...")
@@ -101,16 +102,16 @@ class APIRateLimiter:
 # ======= Loop principal ===========
 def monitorear():
     rate_limiter = APIRateLimiter(max_requests=8, period=60)
-    
+
     while True:
         logger.info("\n🚀 Iniciando nuevo ciclo de monitoreo")
-        
+
         for nombre, ticker in CONFIG["activos"].items():
             try:
                 rate_limiter.check_limit()
                 evaluar_activo(nombre, ticker)
                 rate_limiter.request_count += 1
-                time.sleep(1)  # Pausa corta entre activos
+                time.sleep(1)
             except Exception as e:
                 logger.error(f"❌ Error en ciclo principal para {nombre}: {str(e)}")
 
