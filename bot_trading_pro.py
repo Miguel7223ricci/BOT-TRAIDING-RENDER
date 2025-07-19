@@ -37,7 +37,7 @@ def evaluar_activo(nombre, ticker):
         logger.warning(f"⚠️ No se pudo obtener datos para {nombre}")
         return
 
-    if "close" not in df.columns:
+    if "CLOSE" not in df.columns:
         logger.error(f"❌ Columna 'close' faltante en datos para {nombre}")
         return
 
