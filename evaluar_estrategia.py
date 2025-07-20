@@ -5,10 +5,6 @@ import pandas as pd
 from indicadores_tecnicos import calcular_indicadores
 
 def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
-    """
-    Evalúa señales de trading para un activo utilizando análisis técnico y modelo ML (si se provee).
-    Devuelve una lista de señales tipo diccionario con precio, SL, TP y mensaje.
-    """
     if df is None or len(df) < 50:
         return []
 
@@ -16,11 +12,12 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
     df["hora"] = df.index.hour
 
     ultima = df.iloc[-1]
-    atr = ultima["ATR"]
-    ema_rapida = ultima["EMA_Rapida"]
-    ema_lenta = ultima["EMA_Lenta"]
-    rsi = ultima["RSI"]
-    precio = ultima["CLOSE"]
+    # CORRECCIÓN: Usar nombres en minúsculas
+    atr = ultima["atr"]
+    ema_rapida = ultima["ema_rapida"]
+    ema_lenta = ultima["ema_lenta"]
+    rsi = ultima["rsi"]
+    precio = ultima["close"]
 
     # Análisis de sesiones horarias
     asiatico = df.between_time("00:00", "06:00")
@@ -28,11 +25,11 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
     nyse = df.between_time("13:00", "20:00")
 
     rompimientos = []
-    if precio > asiatico["HIGH"].max() or precio < asiatico["LOW"].min():
+    if precio > asiatico["high"].max() or precio < asiatico["low"].min():
         rompimientos.append("Asiático")
-    if precio > londres["HIGH"].max() or precio < londres["LOW"].min():
+    if precio > londres["high"].max() or precio < londres["low"].min():
         rompimientos.append("Londres")
-    if precio > nyse["HIGH"].max() or precio < nyse["LOW"].min():
+    if precio > nyse["high"].max() or precio < nyse["low"].min():
         rompimientos.append("EE.UU.")
 
     if not rompimientos:
@@ -42,12 +39,12 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
 
     # -------- PREDICCIÓN CON MODELO ML --------
     if modelo:
-
-	entrada_ml = pd.DataFrame([{
-    	    "atr": ultima["ATR"],
-    	    "ema_rapida": ultima["EMA_RAPIDA"],
-            "ema_lenta": ultima["EMA_LENTA"],
-            "rsi": ultima["RSI"]
+        # CORRECCIÓN: Usar nombres en minúsculas consistentes
+        entrada_ml = pd.DataFrame([{
+            "atr": atr,
+            "ema_rapida": ema_rapida,
+            "ema_lenta": ema_lenta,
+            "rsi": rsi
         }])
       
         try:
@@ -84,7 +81,6 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
 
     return señales
 
-
 def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, confianza, rangos):
     return f"""
 🔔 *SEÑAL DE TRADING ({tipo})* - {datetime.now().strftime('%Y-%m-%d %H:%M')}
@@ -99,3 +95,4 @@ def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, conf
 • Confianza ML: {confianza:.2%}
 • Rango roto: {', '.join(rangos)}
 """
+    
