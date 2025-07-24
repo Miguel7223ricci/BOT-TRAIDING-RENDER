@@ -4,6 +4,7 @@ import os
 import requests
 import pandas as pd
 import logging
+import urllib.parse
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
@@ -22,9 +23,12 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
     dias = int(periodo.replace("d", ""))
     fecha_inicio = hoy - timedelta(days=dias)
 
+    # Codificar el símbolo para que funcione con símbolos como EUR/USD
+    symbol_codificado = urllib.parse.quote(ticker)
+
     url = "https://api.twelvedata.com/time_series"
     params = {
-        "symbol": ticker,
+        "symbol": symbol_codificado,
         "interval": intervalo,
         "start_date": fecha_inicio.strftime("%Y-%m-%d"),
         "end_date": hoy.strftime("%Y-%m-%d"),
@@ -75,5 +79,3 @@ def obtener_datos(ticker, intervalo="4h", periodo="60d"):
     except Exception as e:
         logger.exception(f"❌ Excepción al obtener datos de {ticker}: {e}")
         return None
-
-

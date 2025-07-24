@@ -1,87 +1,97 @@
-# evaluar_estrategia.py
-
 from datetime import datetime
 import pandas as pd
+import logging
 from indicadores_tecnicos import calcular_indicadores
 
+logger = logging.getLogger(__name__)
+
 def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
-    if df is None or len(df) < 50:
+    if df is None or len(df) < 60:
+        logger.warning(f"⚠️ {activo} tiene datos insuficientes ({len(df)} filas)")
         return []
 
     df = calcular_indicadores(df.copy())
-    df["hora"] = df.index.hour
+
+    required_cols = ['close', 'atr', 'ema_35', 'ema_50', 'rsi', 'adx', 'swing_high', 'swing_low']
+    if not all(col in df.columns for col in required_cols):
+        logger.error(f"❌ Faltan columnas requeridas en {activo}: {df.columns.tolist()}")
+        return []
 
     ultima = df.iloc[-1]
-    # CORRECCIÓN: Usar nombres en minúsculas
-    atr = ultima["atr"]
-    ema_rapida = ultima["ema_rapida"]
-    ema_lenta = ultima["ema_lenta"]
-    rsi = ultima["rsi"]
-    precio = ultima["close"]
+    precio = ultima['close']
+    atr = ultima['atr']
+    ema_35 = ultima['ema_35']
+    ema_50 = ultima['ema_50']
+    rsi = ultima['rsi']
+    adx = ultima['adx']
+    swing_high = ultima['swing_high']
+    swing_low = ultima['swing_low']
 
-    # Análisis de sesiones horarias
-    asiatico = df.between_time("00:00", "06:00")
-    londres = df.between_time("06:00", "12:00")
-    nyse = df.between_time("13:00", "20:00")
+    tendencia_alcista = ema_35 > ema_50
+    tendencia_bajista = ema_35 < ema_50
 
-    rompimientos = []
-    if precio > asiatico["high"].max() or precio < asiatico["low"].min():
-        rompimientos.append("Asiático")
-    if precio > londres["high"].max() or precio < londres["low"].min():
-        rompimientos.append("Londres")
-    if precio > nyse["high"].max() or precio < nyse["low"].min():
-        rompimientos.append("EE.UU.")
+    fibo_start = swing_low if tendencia_alcista else swing_high
+    fibo_end = swing_high if tendencia_alcista else swing_low
 
-    if not rompimientos:
+    fibo_500 = fibo_start + 0.5 * (fibo_end - fibo_start)
+    fibo_618 = fibo_start + 0.618 * (fibo_end - fibo_start)
+    buffer = 0.0005
+
+    rebote_long = tendencia_alcista and (ultima['low'] <= fibo_618 and ultima['close'] >= fibo_500)
+    rebote_short = tendencia_bajista and (ultima['high'] >= fibo_618 and ultima['close'] <= fibo_500)
+
+    rsi_long_ok = rsi > 45 and rsi < 60 and df['rsi'].diff().iloc[-1] > 0
+    rsi_short_ok = rsi < 55 and rsi > 40 and df['rsi'].diff().iloc[-1] < 0
+    adx_ok = adx > 20
+
+    if not adx_ok:
+        logger.info(f"⛔ ADX insuficiente en {activo} ({adx:.2f})")
         return []
 
     señales = []
 
-    # -------- PREDICCIÓN CON MODELO ML --------
-    if modelo:
-        # CORRECCIÓN: Usar nombres en minúsculas consistentes
-        entrada_ml = pd.DataFrame([{
-            "atr": atr,
-            "ema_rapida": ema_rapida,
-            "ema_lenta": ema_lenta,
-            "rsi": rsi
-        }])
-      
-        try:
-            proba = modelo.predict_proba(entrada_ml)[0]
-            clase_idx = proba.argmax()
-            clase = modelo.classes_[clase_idx]
-            confianza = proba[clase_idx]
-        except Exception as e:
-            print(f"[ERROR] ❌ Error en predicción ML para {activo}: {e}")
-            return []
+    if rebote_long and rsi_long_ok:
+        sl = fibo_618 - buffer
+        tp = precio + 2 * (precio - sl)
+        mensaje = formatear_mensaje(
+            activo, "BUY", precio, sl, tp,
+            atr, ema_35, ema_50, rsi, adx, "EMA+Fibo+RSI+ADX"
+        )
+        señales.append({
+            "activo": activo,
+            "tipo": "BUY",
+            "precio": precio,
+            "sl": sl,
+            "tp": tp,
+            "mensaje": mensaje,
+            "fecha": datetime.now()
+        })
+
+    if rebote_short and rsi_short_ok:
+        sl = fibo_618 + buffer
+        tp = precio - 2 * (sl - precio)
+        mensaje = formatear_mensaje(
+            activo, "SELL", precio, sl, tp,
+            atr, ema_35, ema_50, rsi, adx, "EMA+Fibo+RSI+ADX"
+        )
+        señales.append({
+            "activo": activo,
+            "tipo": "SELL",
+            "precio": precio,
+            "sl": sl,
+            "tp": tp,
+            "mensaje": mensaje,
+            "fecha": datetime.now()
+        })
+
+    if señales:
+        logger.info(f"✅ Señales generadas para {activo}: {[s['tipo'] for s in señales]}")
     else:
-        clase = "HOLD"
-        confianza = 0.0
-
-    if confianza < umbral_confianza or clase == "HOLD":
-        return []
-
-    # -------- GENERAR MENSAJE --------
-    sl = precio - atr * 1.5 if clase == "BUY" else precio + atr * 1.5
-    tp = precio + atr * 2 if clase == "BUY" else precio - atr * 2
-
-    mensaje = formatear_mensaje(
-        activo, clase, precio, sl, tp, atr, ema_rapida, ema_lenta, rsi, confianza, rompimientos
-    )
-
-    señales.append({
-        "activo": activo,
-        "tipo": clase,
-        "precio": precio,
-        "sl": sl,
-        "tp": tp,
-        "mensaje": mensaje
-    })
+        logger.info(f"ℹ️ No se generaron señales para {activo}")
 
     return señales
 
-def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, confianza, rangos):
+def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, adx, criterio):
     return f"""
 🔔 *SEÑAL DE TRADING ({tipo})* - {datetime.now().strftime('%Y-%m-%d %H:%M')}
 • Activo: {activo}
@@ -89,10 +99,9 @@ def formatear_mensaje(activo, tipo, precio, sl, tp, atr, ema_r, ema_l, rsi, conf
 • Stop Loss: {sl:.5f}
 • Take Profit: {tp:.5f}
 • ATR: {atr:.5f}
-• EMA Rápida: {ema_r:.5f}
-• EMA Lenta: {ema_l:.5f}
+• EMA 35: {ema_r:.5f}
+• EMA 50: {ema_l:.5f}
 • RSI: {rsi:.2f}
-• Confianza ML: {confianza:.2%}
-• Rango roto: {', '.join(rangos)}
+• ADX: {adx:.2f}
+• Criterio: {criterio}
 """
-    

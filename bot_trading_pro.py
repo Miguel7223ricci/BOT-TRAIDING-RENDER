@@ -40,7 +40,7 @@ def evaluar_activo(nombre, ticker, intento=1):
             logger.error(f"❌ Columna 'close' faltante en datos para {nombre}")
             return []
 
-        if len(df) < 80:
+        if len(df) < 60:
             logger.warning(f"⚠️ No hay suficientes datos ({len(df)} filas) para {nombre}")
             return []
 
