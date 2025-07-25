@@ -1,4 +1,5 @@
 
+
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -11,6 +12,17 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
         return []
 
     df = df.copy()
+    # 🔄 Calcular swing_high y swing_low antes de definir 'ultima'
+    if 'swing_high' not in df.columns or df['swing_high'].isna().all():
+        df['swing_high'] = df['high'].rolling(window=20).max()
+    if 'swing_low' not in df.columns or df['swing_low'].isna().all():
+        df['swing_low'] = df['low'].rolling(window=20).min()
+
+    logger.debug(f"🧪 Últimos valores high: {df['high'].tail(5).tolist()}")
+    logger.debug(f"🧪 Últimos valores low: {df['low'].tail(5).tolist()}")
+    logger.debug(f"🧪 Últimos valores swing_high: {df['swing_high'].tail(5).tolist()}")
+    logger.debug(f"🧪 Últimos valores swing_low: {df['swing_low'].tail(5).tolist()}")
+
 
     # Calcular swing_high y swing_low si no existen
     if 'swing_high' not in df.columns or df['swing_high'].isna().all():
