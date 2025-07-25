@@ -50,6 +50,32 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
 
     señales = []
 
+
+    logger.info(f"🔎 Indicadores {activo}:")
+    logger.info(f"   • Precio: {precio:.5f}")
+    logger.info(f"   • EMA 35: {ema_35:.5f} | EMA 50: {ema_50:.5f}")
+    logger.info(f"   • RSI: {rsi:.2f}")
+    logger.info(f"   • ADX: {adx:.2f}")
+    logger.info(f"   • Swing High: {swing_high:.5f} | Swing Low: {swing_low:.5f}")
+    logger.info(f"   • Fibo 0.618: {fibo_618:.5f} | Fibo 0.5: {fibo_500:.5f}")
+    logger.info(f"   • Último LOW: {ultima['low']:.5f} | HIGH: {ultima['high']:.5f} | CLOSE: {ultima['close']:.5f}")
+
+    if not adx_ok:
+        logger.info(f"⛔ ADX demasiado bajo: {adx:.2f} (debe ser > 20)")
+
+    if tendencia_alcista:
+        if not rebote_long:
+            logger.info("⛔ No hay rebote LONG válido (Fibo + EMA)")
+        if not rsi_long_ok:
+            logger.info(f"⛔ RSI no confirma LONG: {rsi:.2f} (debe estar entre 45-60 y en subida)")
+    elif tendencia_bajista:
+        if not rebote_short:
+            logger.info("⛔ No hay rebote SHORT válido (Fibo + EMA)")
+        if not rsi_short_ok:
+            logger.info(f"⛔ RSI no confirma SHORT: {rsi:.2f} (debe estar entre 40-55 y en bajada)")
+    else:
+        logger.info("⛔ No hay tendencia clara (EMA35 ≈ EMA50)")
+
     if rebote_long and rsi_long_ok:
         sl = fibo_618 - buffer
         tp = precio + 2 * (precio - sl)
