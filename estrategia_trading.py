@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -13,24 +11,12 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
 
     df = df.copy()
     df = df.dropna(subset=["high", "low"])  # 🧹 Limpieza de velas inválidas
-    # 🔄 Calcular swing_high y swing_low antes de definir 'ultima'
-    if 'swing_high' not in df.columns or df['swing_high'].isna().all():
-        df['swing_high'] = df['high'].rolling(window=20).max()
-    if 'swing_low' not in df.columns or df['swing_low'].isna().all():
-        df['swing_low'] = df['low'].rolling(window=20).min()
-
-    logger.debug(f"🧪 Últimos valores high: {df['high'].tail(5).tolist()}")
-    logger.debug(f"🧪 Últimos valores low: {df['low'].tail(5).tolist()}")
-    logger.debug(f"🧪 Últimos valores swing_high: {df['swing_high'].tail(5).tolist()}")
-    logger.debug(f"🧪 Últimos valores swing_low: {df['swing_low'].tail(5).tolist()}")
-
 
     # Calcular swing_high y swing_low si no existen
     if 'swing_high' not in df.columns or df['swing_high'].isna().all():
         df['swing_high'] = df['high'].rolling(window=20).max()
     if 'swing_low' not in df.columns or df['swing_low'].isna().all():
         df['swing_low'] = df['low'].rolling(window=20).min()
-
 
     required_cols = ['close', 'atr', 'ema_35', 'ema_50', 'rsi', 'adx', 'swing_high', 'swing_low']
     if not all(col in df.columns for col in required_cols):
@@ -50,9 +36,13 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     tendencia_alcista = ema_35 > ema_50
     tendencia_bajista = ema_35 < ema_50
 
+    # Corregido: Validar que swing_high y swing_low tengan valores válidos
+    if pd.isna(swing_high) or pd.isna(swing_low):
+        logger.warning(f"⚠️ Swing High o Low inválidos para {nombre}. Saltando activo.")
+        return []
+
     fibo_start = swing_low if tendencia_alcista else swing_high
     fibo_end = swing_high if tendencia_alcista else swing_low
-
     fibo_500 = fibo_start + 0.5 * (fibo_end - fibo_start)
     fibo_618 = fibo_start + 0.618 * (fibo_end - fibo_start)
     buffer = 0.0005
@@ -89,41 +79,24 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     else:
         logger.info("⛔ No hay tendencia clara (EMA35 ≈ EMA50)")
 
-
     señales = []
 
     if rebote_long and rsi_long_ok and adx_ok:
         sl = fibo_618 - buffer
         tp = precio + 2 * (precio - sl)
-        mensaje = formatear_mensaje(
-            nombre, "BUY", precio, sl, tp,
-            atr, ema_35, ema_50, rsi, adx, "EMA+Fibo+RSI+ADX"
-        )
+        mensaje = formatear_mensaje(nombre, "BUY", precio, sl, tp, atr, ema_35, ema_50, rsi, adx, "EMA+Fibo+RSI+ADX")
         señales.append({
-            "activo": nombre,
-            "tipo": "BUY",
-            "precio": precio,
-            "sl": sl,
-            "tp": tp,
-            "mensaje": mensaje,
-            "fecha": datetime.now()
+            "activo": nombre, "tipo": "BUY", "precio": precio,
+            "sl": sl, "tp": tp, "mensaje": mensaje, "fecha": datetime.now()
         })
 
     if rebote_short and rsi_short_ok and adx_ok:
         sl = fibo_618 + buffer
         tp = precio - 2 * (sl - precio)
-        mensaje = formatear_mensaje(
-            nombre, "SELL", precio, sl, tp,
-            atr, ema_35, ema_50, rsi, adx, "EMA+Fibo+RSI+ADX"
-        )
+        mensaje = formatear_mensaje(nombre, "SELL", precio, sl, tp, atr, ema_35, ema_50, rsi, adx, "EMA+Fibo+RSI+ADX")
         señales.append({
-            "activo": nombre,
-            "tipo": "SELL",
-            "precio": precio,
-            "sl": sl,
-            "tp": tp,
-            "mensaje": mensaje,
-            "fecha": datetime.now()
+            "activo": nombre, "tipo": "SELL", "precio": precio,
+            "sl": sl, "tp": tp, "mensaje": mensaje, "fecha": datetime.now()
         })
 
     if señales:
@@ -133,8 +106,8 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
 
     return señales
 
-def formatear_mensaje(activo, direccion, precio, stop, target,
-                      atr, ema_r, ema_l, rsi, adx, criterio):
+
+def formatear_mensaje(activo, direccion, precio, stop, target, atr, ema_r, ema_l, rsi, adx, criterio):
     return f"""
 🔔 *SEÑAL DE TRADING ({direccion})* - {datetime.now().strftime('%Y-%m-%d %H:%M')}
 • Activo: {activo}
