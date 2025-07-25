@@ -10,7 +10,7 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
         return []
 
     df = df.copy()
-    df = df.dropna(subset=["high", "low"])  # 🧹 Limpieza de velas inválidas
+    df = df.dropna(subset=["high", "low"])  # 🧹 Limpieza mínima
 
     # Calcular swing_high y swing_low si no existen
     if 'swing_high' not in df.columns or df['swing_high'].isna().all():
@@ -36,9 +36,18 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     tendencia_alcista = ema_35 > ema_50
     tendencia_bajista = ema_35 < ema_50
 
-    # Corregido: Validar que swing_high y swing_low tengan valores válidos
+    # Mostrar logs siempre, aunque swing sea NaN
+    logger.info(f"🔎 Indicadores {nombre}:")
+    logger.info(f"   • Precio: {precio:.5f}")
+    logger.info(f"   • EMA 35: {ema_35:.5f} | EMA 50: {ema_50:.5f}")
+    logger.info(f"   • RSI: {rsi:.2f}")
+    logger.info(f"   • ADX: {adx:.2f}")
+    logger.info(f"   • Swing High: {swing_high if pd.notna(swing_high) else 'NaN'} | Swing Low: {swing_low if pd.notna(swing_low) else 'NaN'}")
+    logger.info(f"   • Último LOW: {ultima['low']:.5f} | HIGH: {ultima['high']:.5f} | CLOSE: {ultima['close']:.5f}")
+
+    # Si swing no es válido, continuar pero no aplicar estrategia
     if pd.isna(swing_high) or pd.isna(swing_low):
-        logger.warning(f"⚠️ Swing High o Low inválidos para {nombre}. Saltando activo.")
+        logger.warning(f"⚠️ Swing High o Low inválidos para {nombre}. No se aplicará estrategia, pero se muestran indicadores.")
         return []
 
     fibo_start = swing_low if tendencia_alcista else swing_high
@@ -47,21 +56,14 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
     fibo_618 = fibo_start + 0.618 * (fibo_end - fibo_start)
     buffer = 0.0005
 
+    logger.info(f"   • Fibo 0.618: {fibo_618:.5f} | Fibo 0.5: {fibo_500:.5f}")
+
     rebote_long = tendencia_alcista and (ultima['low'] <= fibo_618 and ultima['close'] >= fibo_500)
     rebote_short = tendencia_bajista and (ultima['high'] >= fibo_618 and ultima['close'] <= fibo_500)
 
     rsi_long_ok = rsi > 45 and rsi < 60 and df['rsi'].diff().iloc[-1] > 0
     rsi_short_ok = rsi < 55 and rsi > 40 and df['rsi'].diff().iloc[-1] < 0
     adx_ok = adx > 20
-
-    logger.info(f"🔎 Indicadores {nombre}:")
-    logger.info(f"   • Precio: {precio:.5f}")
-    logger.info(f"   • EMA 35: {ema_35:.5f} | EMA 50: {ema_50:.5f}")
-    logger.info(f"   • RSI: {rsi:.2f}")
-    logger.info(f"   • ADX: {adx:.2f}")
-    logger.info(f"   • Swing High: {swing_high:.5f} | Swing Low: {swing_low:.5f}")
-    logger.info(f"   • Fibo 0.618: {fibo_618:.5f} | Fibo 0.5: {fibo_500:.5f}")
-    logger.info(f"   • Último LOW: {ultima['low']:.5f} | HIGH: {ultima['high']:.5f} | CLOSE: {ultima['close']:.5f}")
 
     if not adx_ok:
         logger.info(f"⛔ ADX demasiado bajo: {adx:.2f} (debe ser > 20)")
