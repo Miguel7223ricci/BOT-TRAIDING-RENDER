@@ -12,6 +12,7 @@ def evaluar_estrategia(nombre, df, modelo, umbral_confianza):
         return []
 
     df = df.copy()
+    df = df.dropna(subset=["high", "low"])  # 🧹 Limpieza de velas inválidas
     # 🔄 Calcular swing_high y swing_low antes de definir 'ultima'
     if 'swing_high' not in df.columns or df['swing_high'].isna().all():
         df['swing_high'] = df['high'].rolling(window=20).max()
