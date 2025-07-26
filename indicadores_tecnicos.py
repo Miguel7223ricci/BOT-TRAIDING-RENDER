@@ -1,5 +1,10 @@
 import pandas as pd
 import numpy as np
+from ta.trend import EMAIndicator, ADXIndicator, SMAIndicator
+from ta.momentum import RSIIndicator
+from ta.volatility import AverageTrueRange
+from swing_detection import detectar_swings  # Importar la nueva función
+
 
 def calcular_ema(series, periodo):
     return series.ewm(span=periodo, adjust=False).mean()
