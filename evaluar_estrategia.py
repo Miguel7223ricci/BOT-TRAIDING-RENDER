@@ -2,6 +2,7 @@ from datetime import datetime
 import pandas as pd
 import logging
 from indicadores_tecnicos import calcular_indicadores
+from swing_detection import detectar_swings  # Importar la nueva función
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,17 @@ def evaluar_estrategia(activo, df, modelo=None, umbral_confianza=0.6):
     if not all(col in df.columns for col in required_cols):
         logger.error(f"❌ Faltan columnas requeridas en {activo}: {df.columns.tolist()}")
         return []
-
+        
+ # Añadir detección de swings si no existen
+    if 'swing_high' not in df.columns or 'swing_low' not in df.columns:
+        if len(df) >= 11:  # Mínimo para detección (window=5)
+            df['swing_high'], df['swing_low'] = detectar_swings(
+                df['high'], df['low'], window=5
+            )
+        else:
+            df['swing_high'] = np.nan
+            df['swing_low'] = np.nan
+            
     ultima = df.iloc[-1]
     precio = ultima['close']
     atr = ultima['atr']
